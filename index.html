@@ -83,6 +83,10 @@ th{color:var(--brown);background:#f7f2e6}
 .modal h3{color:var(--brown);font-size:1.3em;margin-bottom:12px}
 .modal .x{position:absolute;top:10px;right:14px;font-size:1.6em;background:none;color:#999;padding:4px}
 .admin-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chips button{font-size:.82em;font-weight:400;padding:5px 10px;border-radius:14px;
+  background:#f2ecdb;border:1px solid var(--line);color:var(--brown)}
+.chips button:hover{background:var(--gold);color:#fff}
 footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
 .small{font-size:.88em;color:#8a7a5c}
 #loading{text-align:center;padding:40px;color:var(--brown);font-size:1.2em;display:none}
@@ -129,7 +133,11 @@ footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
         <div><label>申請人姓名 *</label><input id="fName" maxlength="30" required placeholder="請輸入姓名或法名"></div>
         <div><label>聯絡電話（選填）</label><input id="fPhone" maxlength="20" placeholder="方便聯繫時使用"></div>
         <div><label>日期 *</label><input id="fDate" type="date" required></div>
-        <div><label>Zoom 會議室號碼 *</label><select id="fRoom" required></select></div>
+        <div><label>Zoom 會議室號碼 *（必須是 10 碼數字）</label>
+          <input id="fRoom" maxlength="10" inputmode="numeric" pattern="\d{10}" required
+            placeholder="自行輸入 10 碼 Zoom 號碼" title="請輸入 10 碼數字">
+          <div id="roomChips" class="chips"></div>
+        </div>
         <div><label>開始時間 *</label><select id="fStart" required></select></div>
         <div><label>結束時間 *</label><select id="fEnd" required></select></div>
       </div>
@@ -233,7 +241,7 @@ footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
           <tbody id="aRoomBody"></tbody>
         </table></div>
         <div class="grid2" style="margin-top:12px">
-          <div><label>新 Zoom 號碼</label><input id="rId" maxlength="15" placeholder="純數字"></div>
+          <div><label>新 Zoom 號碼</label><input id="rId" maxlength="10" inputmode="numeric" placeholder="10 碼數字"></div>
           <div><label>名稱</label><input id="rName" maxlength="30" placeholder="例如：法務堂"></div>
         </div>
         <button class="btn-sm btn-gold" style="margin-top:12px" onclick="addRoom()">新增會議室</button>
@@ -267,7 +275,8 @@ function parseDate(s) { return new Date(s + 'T00:00:00'); }
 function toMin(t) { return +t.slice(0, 2) * 60 + +t.slice(3, 5); }
 function roomColor(id) {
   var idx = DATA.config.rooms.findIndex(function (r) { return r.id === id; });
-  return ROOM_COLORS[(idx >= 0 ? idx : 0) % ROOM_COLORS.length];
+  if (idx < 0) idx = (+String(id).slice(-1) || 0);   // 非常用會議室：依末碼配色
+  return ROOM_COLORS[idx % ROOM_COLORS.length];
 }
 function roomName(id) {
   var r = DATA.config.rooms.find(function (x) { return x.id === id; });
@@ -418,9 +427,9 @@ function timeOptions(sel, defVal) {
   sel.innerHTML = html;
 }
 function fillBookingForm() {
-  var sel = document.getElementById('fRoom');
-  sel.innerHTML = DATA.config.rooms.map(function (r) {
-    return '<option value="' + r.id + '">' + esc(r.name) + '（' + r.id + '）</option>';
+  document.getElementById('roomChips').innerHTML = DATA.config.rooms.map(function (r) {
+    return '<button type="button" onclick="document.getElementById(\'fRoom\').value=\'' + r.id + '\'">' +
+      esc(r.name) + '</button>';
   }).join('');
   var d = document.getElementById('fDate');
   if (!d.value && DATA.today) { d.value = DATA.today; d.min = DATA.today; }
@@ -442,6 +451,11 @@ function showMsg(id, ok, text) {
 
 function submitBook(ev) {
   ev.preventDefault();
+  var roomVal = document.getElementById('fRoom').value.trim();
+  if (!/^\d{10}$/.test(roomVal)) {
+    showMsg('bookMsg', false, '❌ Zoom 會議室號碼必須是 10 碼數字（目前輸入 ' + roomVal.length + ' 碼）');
+    return false;
+  }
   var btn = document.getElementById('bookBtn');
   btn.disabled = true; btn.textContent = '送出中⋯⋯';
   apiPost({

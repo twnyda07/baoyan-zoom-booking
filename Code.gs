@@ -209,11 +209,10 @@ function apiBook(req) {
   if (date < today) return { ok: false, error: '不能預約過去的日期' };
   if (date > addDays(today, 180)) return { ok: false, error: '最多只能預約 180 天內的時段' };
 
+  if (!/^\d{10}$/.test(room)) return { ok: false, error: 'Zoom 會議室號碼必須是 10 碼數字' };
   for (var i = 0; i < cfg.bannedRooms.length; i++) {
     if (cfg.bannedRooms[i].id === room) return { ok: false, error: '會議室 ' + room + ' 禁止申請' };
   }
-  var roomOk = cfg.rooms.some(function (r) { return r.id === room; });
-  if (!roomOk) return { ok: false, error: '請選擇有效的會議室' };
 
   var conflict = findConflict(cfg, date, start, end, room, null);
   if (conflict) return { ok: false, error: conflict, conflict: true };
@@ -304,7 +303,7 @@ function apiAdmin(req) {
 
   if (op === 'addRoom') {
     var r = req.room || {};
-    if (!/^\d{6,15}$/.test(String(r.id || ''))) return { ok: false, error: 'Zoom 號碼須為 6–15 位數字' };
+    if (!/^\d{10}$/.test(String(r.id || ''))) return { ok: false, error: 'Zoom 號碼須為 10 碼數字' };
     if (cfg.rooms.some(function (x) { return x.id === r.id; })) return { ok: false, error: '此會議室已存在' };
     cfg.rooms.push({ id: String(r.id), name: String(r.name || r.id) });
     saveConfig(cfg);
