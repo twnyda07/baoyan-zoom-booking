@@ -107,7 +107,7 @@ footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
 </header>
 
 <div class="wrap">
-  <div class="notice">⚠️ 會議室 <b>8865224676</b> 禁止申請 ｜ 固定課程時段不開放預約，系統會自動檢查衝突</div>
+  <div class="notice" id="noticeBar">⚠️ 固定課程時段不開放預約，系統會自動檢查衝突</div>
 
   <div id="loading">🪷 資料載入中，請稍候⋯⋯</div>
 
@@ -135,11 +135,14 @@ footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
       <div class="grid2">
         <div><label>申請人姓名 *</label><input id="fName" maxlength="30" required placeholder="請輸入姓名或法名"></div>
         <div><label>聯絡電話（選填）</label><input id="fPhone" maxlength="20" placeholder="方便聯繫時使用"></div>
+        <div><label>Email（選填，忘記取消碼時找回用）</label>
+          <input id="fEmail" type="email" maxlength="60" placeholder="填了才能使用「忘記取消碼」功能"></div>
         <div><label>日期 *</label><input id="fDate" type="date" required></div>
-        <div><label>Zoom 會議室號碼 *（必須是 10 碼數字）</label>
-          <input id="fRoom" maxlength="10" inputmode="numeric" pattern="\d{10}" required
-            placeholder="自行輸入 10 碼 Zoom 號碼" title="請輸入 10 碼數字">
-          <div id="roomChips" class="chips"></div>
+        <div><label>Zoom 會議室號碼 *</label>
+          <select id="fRoomSel" required onchange="onRoomSel()"></select>
+          <input id="fRoomOther" maxlength="10" inputmode="numeric" pattern="\d{10}"
+            placeholder="請輸入 10 碼 Zoom 號碼" title="請輸入 10 碼數字"
+            style="display:none;margin-top:8px">
         </div>
         <div><label>開始時間 *</label><select id="fStart" required></select></div>
         <div><label>結束時間 *</label><select id="fEnd" required></select></div>
@@ -159,6 +162,15 @@ footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
       <tbody id="listBody"></tbody>
     </table></div>
     <p class="small" id="listEmpty" style="display:none;text-align:center;padding:10px">目前尚無預約</p>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)">
+      <b>📧 忘記取消碼？</b>
+      <span class="small">輸入預約時填寫的 Email，系統會把您尚未到期的預約資訊（含取消碼）寄給您。</span>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <input id="forgotEmail" type="email" maxlength="60" placeholder="您的 Email" style="max-width:300px">
+        <button class="btn-sm btn-gold" id="forgotBtn" onclick="forgotSend()">寄回我的預約資訊</button>
+      </div>
+      <div class="msg" id="forgotMsg"></div>
+    </div>
   </div>
 
   <!-- 固定課程表 -->
@@ -187,6 +199,7 @@ footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
         <input id="cancelCode" maxlength="4" placeholder="4 位數取消碼" style="max-width:180px">
         <button class="btn-sm btn-red" onclick="doCancel()">取消預約</button>
       </div>
+      <p class="small" style="margin-top:8px">忘記取消碼？請至「近期預約一覽」下方的 📧 忘記取消碼，輸入預約時填寫的 Email 取回。</p>
     </div>
     <div class="msg" id="detailMsg"></div>
   </div>
@@ -281,9 +294,19 @@ function roomColor(id) {
   if (idx < 0) idx = (+String(id).slice(-1) || 0);   // 非常用會議室：依末碼配色
   return ROOM_COLORS[idx % ROOM_COLORS.length];
 }
+function fmtRoom(id) {
+  return String(id).replace(/^(\d{3})(\d{3})(\d{4})$/, '$1 $2 $3');
+}
 function roomName(id) {
   var r = DATA.config.rooms.find(function (x) { return x.id === id; });
-  return r ? r.name : id;
+  return r ? r.name : fmtRoom(id);
+}
+// 行事曆需要顯示的所有會議室：可預約清單＋固定課程用到的＋已有預約的
+function allCalendarRooms() {
+  var ids = DATA.config.rooms.map(function (r) { return r.id; });
+  DATA.config.fixedSlots.forEach(function (f) { if (ids.indexOf(f.room) < 0) ids.push(f.room); });
+  DATA.bookings.forEach(function (b) { if (ids.indexOf(b.room) < 0) ids.push(b.room); });
+  return ids;
 }
 function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) {
   return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -315,7 +338,7 @@ function loadAll(silent) {
 }
 
 function renderAll() {
-  renderTabs(); renderCalendar(); renderList(); renderFixedTable();
+  renderNotice(); renderTabs(); renderCalendar(); renderList(); renderFixedTable();
   fillBookingForm();
   if (adminPw && document.getElementById('adminPanel').style.display !== 'none') renderAdmin();
 }
@@ -329,16 +352,23 @@ function goToday(noRender) {
 }
 function moveWeek(n) { weekStart.setDate(weekStart.getDate() + 7 * n); renderCalendar(); }
 
+function renderNotice() {
+  var banned = DATA.config.bannedRooms.map(function (b) { return fmtRoom(b.id); }).join('、');
+  document.getElementById('noticeBar').innerHTML = '⚠️ ' +
+    (banned ? '會議室 <b>' + banned + '</b> 禁止申請 ｜ ' : '') +
+    '固定課程時段不開放預約，系統會自動檢查衝突';
+}
+
 function renderTabs() {
   var el = document.getElementById('roomTabs');
   var html = '<button class="tab' + (roomFilter === 'all' ? ' on' : '') + '" onclick="setRoom(\'all\')">全部會議室</button>';
-  DATA.config.rooms.forEach(function (r) {
-    html += '<button class="tab' + (roomFilter === r.id ? ' on' : '') + '" onclick="setRoom(\'' + r.id + '\')">' + esc(r.name) + '</button>';
+  allCalendarRooms().forEach(function (id) {
+    html += '<button class="tab' + (roomFilter === id ? ' on' : '') + '" onclick="setRoom(\'' + id + '\')">' + esc(roomName(id)) + '</button>';
   });
   el.innerHTML = html;
   var lg = '<span><span class="dot" style="background:repeating-linear-gradient(45deg,#8a7a5c,#8a7a5c 4px,#7c6d50 4px,#7c6d50 8px)"></span>固定課程</span>';
-  DATA.config.rooms.forEach(function (r) {
-    lg += '<span><span class="dot" style="background:' + roomColor(r.id) + '"></span>' + esc(r.name) + '</span>';
+  allCalendarRooms().forEach(function (id) {
+    lg += '<span><span class="dot" style="background:' + roomColor(id) + '"></span>' + esc(roomName(id)) + '</span>';
   });
   document.getElementById('legend').innerHTML = lg;
 }
@@ -440,10 +470,13 @@ function timeOptions(sel, defVal, step) {
   sel.innerHTML = html;
 }
 function fillBookingForm() {
-  document.getElementById('roomChips').innerHTML = DATA.config.rooms.map(function (r) {
-    return '<button type="button" onclick="document.getElementById(\'fRoom\').value=\'' + r.id + '\'">' +
-      esc(r.name) + '</button>';
-  }).join('');
+  var sel = document.getElementById('fRoomSel');
+  var prev = sel.value;
+  sel.innerHTML = DATA.config.rooms.map(function (r) {
+    return '<option value="' + r.id + '">' + esc(r.name) + '</option>';
+  }).join('') + '<option value="other">其他（自行輸入 10 碼號碼）</option>';
+  if (prev) sel.value = prev;
+  onRoomSel();
   var d = document.getElementById('fDate');
   if (!d.value && DATA.today) { d.value = DATA.today; d.min = DATA.today; }
   if (!document.getElementById('fStart').options.length) {
@@ -462,9 +495,18 @@ function showMsg(id, ok, text) {
   el.innerHTML = text;
 }
 
+function onRoomSel() {
+  var other = document.getElementById('fRoomSel').value === 'other';
+  document.getElementById('fRoomOther').style.display = other ? 'block' : 'none';
+}
+function getRoomValue() {
+  var sel = document.getElementById('fRoomSel').value;
+  return sel === 'other' ? document.getElementById('fRoomOther').value.trim() : sel;
+}
+
 function submitBook(ev) {
   ev.preventDefault();
-  var roomVal = document.getElementById('fRoom').value.trim();
+  var roomVal = getRoomValue();
   if (!/^\d{10}$/.test(roomVal)) {
     showMsg('bookMsg', false, '❌ Zoom 會議室號碼必須是 10 碼數字（目前輸入 ' + roomVal.length + ' 碼）');
     return false;
@@ -473,17 +515,23 @@ function submitBook(ev) {
     showMsg('bookMsg', false, '❌ 請填寫活動名稱（會顯示在行事曆上）');
     return false;
   }
+  var emailVal = document.getElementById('fEmail').value.trim();
+  if (emailVal && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+    showMsg('bookMsg', false, '❌ Email 格式不正確');
+    return false;
+  }
   var btn = document.getElementById('bookBtn');
   btn.disabled = true; btn.textContent = '送出中⋯⋯';
   apiPost({
     action: 'book',
     name: document.getElementById('fName').value.trim(),
     phone: document.getElementById('fPhone').value.trim(),
+    email: emailVal,
     purpose: document.getElementById('fPurpose').value.trim(),
     date: document.getElementById('fDate').value,
     start: document.getElementById('fStart').value,
     end: document.getElementById('fEnd').value,
-    room: document.getElementById('fRoom').value
+    room: roomVal
   }).then(function (res) {
     if (res.ok) {
       showMsg('bookMsg', true, '🙏 ' + res.message + '<br>您的取消碼是 <b style="font-size:1.3em">' + res.code +
@@ -498,6 +546,24 @@ function submitBook(ev) {
     btn.disabled = false; btn.textContent = '送出申請（無衝突即自動放行）';
   });
   return false;
+}
+
+/* ---------- 忘記取消碼 ---------- */
+function forgotSend() {
+  var email = document.getElementById('forgotEmail').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showMsg('forgotMsg', false, '❌ 請輸入正確的 Email');
+    return;
+  }
+  var btn = document.getElementById('forgotBtn');
+  btn.disabled = true; btn.textContent = '寄送中⋯⋯';
+  apiPost({ action: 'forgot', email: email }).then(function (res) {
+    showMsg('forgotMsg', res.ok, (res.ok ? '✅ ' : '❌ ') + (res.message || res.error));
+  }).catch(function () {
+    showMsg('forgotMsg', false, '❌ 連線失敗，請稍後再試');
+  }).finally(function () {
+    btn.disabled = false; btn.textContent = '寄回我的預約資訊';
+  });
 }
 
 /* ---------- 詳情/取消 ---------- */
@@ -570,8 +636,8 @@ function renderAdmin() {
   }).join('');
 
   var xr = document.getElementById('xRoom');
-  xr.innerHTML = DATA.config.rooms.map(function (r) {
-    return '<option value="' + r.id + '">' + esc(r.name) + '（' + r.id + '）</option>';
+  xr.innerHTML = allCalendarRooms().map(function (id) {
+    return '<option value="' + id + '">' + esc(roomName(id)) + '</option>';
   }).join('');
   var xd = document.getElementById('xDays');
   if (!xd.children.length) {

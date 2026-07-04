@@ -14,14 +14,14 @@ function defaultConfig() {
   return {
     adminPassword: 'baoyan2026',
     rooms: [
-      { id: '2023101199', name: '觀心堂 2023101199' },
-      { id: '5224676123', name: '華嚴堂 5224676123' },
-      { id: '8835224601', name: '三卷堂 8835224601' },
-      { id: '3215224676', name: '常住堂 3215224676' }
+      { id: '8896316212', name: '889 631 6212' },
+      { id: '2023101199', name: '202 310 1199（觀心堂）' },
+      { id: '4079019912', name: '407 901 9912' },
+      { id: '8865224676', name: '886 522 4676' },
+      { id: '5224676123', name: '522 467 6123（華嚴堂）' },
+      { id: '8865224678', name: '886 522 4678' }
     ],
-    bannedRooms: [
-      { id: '8865224676', reason: '本會議室禁止申請' }
-    ],
+    bannedRooms: [],
     fixedSlots: [
       { id: 'f1', title: '觀心一支香', room: '2023101199', days: all, start: '07:00', end: '07:40' },
       { id: 'f2', title: '晨讀教觀綱宗', room: '2023101199', days: all, start: '07:40', end: '08:20' },
@@ -177,6 +177,7 @@ function doPost(e) {
     switch (req.action) {
       case 'book': res = apiBook(req); break;
       case 'cancel': res = apiCancel(req); break;
+      case 'forgot': res = apiForgot(req); break;
       case 'admin': res = apiAdmin(req); break;
       default: res = { ok: false, error: '未知的操作' };
     }
@@ -188,10 +189,13 @@ function doPost(e) {
   return jsonOut(res);
 }
 
+function isValidEmail(s) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s); }
+
 function apiBook(req) {
   var cfg = getConfig();
   var name = String(req.name || '').trim();
   var phone = String(req.phone || '').trim();
+  var email = String(req.email || '').trim();
   var purpose = String(req.purpose || '').trim();
   var date = String(req.date || '');
   var start = String(req.start || '');
@@ -202,6 +206,7 @@ function apiBook(req) {
   if (name.length > 30) return { ok: false, error: '姓名過長' };
   if (!purpose) return { ok: false, error: '請填寫活動名稱' };
   if (purpose.length > 100) return { ok: false, error: '活動名稱過長' };
+  if (email && (email.length > 60 || !isValidEmail(email))) return { ok: false, error: 'Email 格式不正確' };
   if (!isValidDate(date)) return { ok: false, error: '日期格式錯誤' };
   if (!isValidTime(start) || !isValidTime(end)) return { ok: false, error: '時間格式錯誤' };
   if (+start.slice(3) % 30 !== 0 || +end.slice(3) % 30 !== 0) {
@@ -224,7 +229,7 @@ function apiBook(req) {
   var id = 'b' + Date.now() + Math.floor(Math.random() * 1000);
   var code = String(Math.floor(1000 + Math.random() * 9000));
   var booking = {
-    id: id, name: name, phone: phone, purpose: purpose,
+    id: id, name: name, phone: phone, email: email, purpose: purpose,
     date: date, start: start, end: end, room: room,
     code: code, createdAt: Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm')
   };
@@ -248,6 +253,35 @@ function apiCancel(req) {
   found.arr.splice(found.idx, 1);
   saveMonth(found.key, found.arr);
   return { ok: true, message: '已取消預約' };
+}
+
+// 忘記取消碼：寄回該 Email 尚未到期的預約資訊
+function apiForgot(req) {
+  var email = String(req.email || '').trim();
+  if (!isValidEmail(email)) return { ok: false, error: 'Email 格式不正確' };
+  var today = todayStr();
+  var nowHM = Utilities.formatDate(new Date(), TZ, 'HH:mm');
+  var list = [];
+  props().getKeys().forEach(function (k) {
+    if (k.indexOf('bookings_') !== 0) return;
+    loadMonth(k).forEach(function (b) {
+      if (!b.email || b.email.toLowerCase() !== email.toLowerCase()) return;
+      if (b.date > today || (b.date === today && b.end >= nowHM)) list.push(b);
+    });
+  });
+  if (!list.length) {
+    return { ok: false, error: '找不到這個 Email 的未到期預約。（預約時需填寫 Email，才能使用此功能）' };
+  }
+  list.sort(function (a, b) { return (a.date + a.start) < (b.date + b.start) ? -1 : 1; });
+  var body = '阿彌陀佛！\n\n以下是您在「寶嚴禪寺zoom會議室預約系統」尚未到期的預約：\n\n' +
+    list.map(function (b) {
+      return '・' + b.date + ' ' + b.start + '–' + b.end +
+        '｜會議室 ' + b.room + '｜' + (b.purpose || '') +
+        '｜申請人 ' + b.name + '｜取消碼 ' + b.code;
+    }).join('\n') +
+    '\n\n如需取消預約，請至 https://twnyda07.github.io/baoyan-zoom-booking/ 點選您的預約，輸入取消碼即可。\n\n寶嚴禪寺 合十';
+  MailApp.sendEmail(email, '【寶嚴禪寺】您的 Zoom 會議室預約資訊與取消碼', body);
+  return { ok: true, message: '已寄出！請至 ' + email + ' 收信（若沒收到請檢查垃圾郵件夾）。' };
 }
 
 function apiAdmin(req) {
@@ -320,6 +354,27 @@ function apiAdmin(req) {
     if (cfg.rooms.length === before2) return { ok: false, error: '找不到該會議室' };
     saveConfig(cfg);
     return { ok: true, message: '已移除會議室' };
+  }
+
+  if (op === 'setRooms') {
+    var rl = req.rooms;
+    if (!Array.isArray(rl) || !rl.length ||
+        rl.some(function (r) { return !/^\d{10}$/.test(String(r.id || '')); })) {
+      return { ok: false, error: '會議室清單格式錯誤（每筆需 10 碼數字 id）' };
+    }
+    cfg.rooms = rl.map(function (r) { return { id: String(r.id), name: String(r.name || r.id) }; });
+    saveConfig(cfg);
+    return { ok: true, message: '已更新會議室清單' };
+  }
+
+  if (op === 'setBanned') {
+    var bl = req.banned;
+    if (!Array.isArray(bl)) return { ok: false, error: '禁止清單格式錯誤' };
+    cfg.bannedRooms = bl.map(function (b) {
+      return { id: String(b.id), reason: String(b.reason || '禁止申請') };
+    });
+    saveConfig(cfg);
+    return { ok: true, message: '已更新禁止申請清單' };
   }
 
   if (op === 'setPassword') {
