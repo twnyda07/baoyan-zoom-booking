@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>寶嚴禪寺zoom會議室預約系統</title>
+<style>
+:root{
+  --gold:#b8860b; --gold-l:#d4a935; --brown:#4a3421; --brown-d:#2e2014;
+  --cream:#faf6ee; --paper:#fffdf8; --red:#a63b2a; --green:#2e7d4f;
+  --line:#e5dcc8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+  background:var(--cream);color:var(--brown-d);font-size:18px;line-height:1.6}
+header{background:linear-gradient(135deg,#2e2014,#4a3421 60%,#6b4c2a);color:#f5e9c9;
+  padding:26px 16px 20px;text-align:center;border-bottom:4px solid var(--gold)}
+header h1{font-size:1.7em;letter-spacing:2px;text-shadow:0 2px 6px rgba(0,0,0,.4)}
+header p{color:#d9c690;margin-top:6px;font-size:.95em}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+.notice{background:#fdecea;border:2px solid var(--red);color:var(--red);border-radius:12px;
+  padding:12px 16px;margin:14px 0;font-weight:700;text-align:center}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 3px 14px rgba(74,52,33,.08);padding:20px;margin:16px 0}
+.card h2{color:var(--brown);font-size:1.35em;border-left:6px solid var(--gold);
+  padding-left:12px;margin-bottom:14px}
+label{display:block;font-weight:700;margin:12px 0 4px;color:var(--brown)}
+input,select,textarea{width:100%;font-size:1.05em;padding:12px;border:2px solid var(--line);
+  border-radius:10px;background:#fff;color:var(--brown-d)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+button{cursor:pointer;font-size:1.1em;font-weight:700;border:none;border-radius:10px;padding:13px 22px}
+.btn-main{background:linear-gradient(135deg,var(--gold),#8a6508);color:#fff;width:100%;margin-top:18px;
+  letter-spacing:3px}
+.btn-main:hover{filter:brightness(1.1)}
+.btn-sm{font-size:.92em;padding:8px 14px}
+.btn-grey{background:#eee;color:#444}
+.btn-red{background:var(--red);color:#fff}
+.btn-gold{background:var(--gold);color:#fff}
+.msg{margin-top:14px;padding:14px;border-radius:10px;display:none;font-weight:700}
+.msg.ok{display:block;background:#e8f5ee;border:2px solid var(--green);color:var(--green)}
+.msg.err{display:block;background:#fdecea;border:2px solid var(--red);color:var(--red)}
+/* 行事曆 */
+.cal-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cal-nav{display:flex;gap:8px;align-items:center}
+.cal-nav b{font-size:1.1em;color:var(--brown);min-width:200px;text-align:center}
+.tabs{display:flex;flex-wrap:wrap;gap:8px}
+.tab{border:2px solid var(--gold);background:#fff;color:var(--brown);border-radius:20px;
+  padding:7px 14px;font-size:.95em;font-weight:700}
+.tab.on{background:var(--gold);color:#fff}
+.cal-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.cal{display:grid;grid-template-columns:56px repeat(7,minmax(120px,1fr));min-width:900px}
+.cal .hd{position:sticky;top:0;background:var(--brown);color:#f5e9c9;text-align:center;
+  padding:8px 4px;font-weight:700;border-left:1px solid #6b5638;font-size:.95em}
+.cal .hd small{display:block;font-weight:400;color:#d9c690}
+.cal .hd.today{background:var(--gold)}
+.timecol{position:relative;background:#f7f2e6}
+.timecol span{position:absolute;right:6px;font-size:.75em;color:#8a7a5c;transform:translateY(-50%)}
+.daycol{position:relative;border-left:1px solid var(--line);background:
+  repeating-linear-gradient(to bottom,transparent 0,transparent 43px,#efe8d6 43px,#efe8d6 44px)}
+.blk{position:absolute;left:3px;right:3px;border-radius:7px;padding:3px 6px;font-size:.78em;
+  line-height:1.3;overflow:hidden;color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.blk b{display:block;font-size:1em}
+.blk.fixed{background:repeating-linear-gradient(45deg,#8a7a5c,#8a7a5c 8px,#7c6d50 8px,#7c6d50 16px);
+  border:1px solid #6b5d44}
+.blk.bk{cursor:pointer}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:.92em}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:16px;height:16px;border-radius:5px;display:inline-block}
+/* 列表 */
+table{width:100%;border-collapse:collapse;font-size:.98em}
+th,td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left}
+th{color:var(--brown);background:#f7f2e6}
+.roomtag{display:inline-block;padding:2px 9px;border-radius:12px;color:#fff;font-size:.85em;font-weight:700}
+/* 彈窗 */
+.modal-bg{position:fixed;inset:0;background:rgba(30,20,10,.55);display:none;z-index:50;
+  align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 12px}
+.modal-bg.show{display:flex}
+.modal{background:var(--paper);border-radius:16px;max-width:640px;width:100%;padding:24px;
+  border-top:6px solid var(--gold);position:relative}
+.modal h3{color:var(--brown);font-size:1.3em;margin-bottom:12px}
+.modal .x{position:absolute;top:10px;right:14px;font-size:1.6em;background:none;color:#999;padding:4px}
+.admin-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
+.small{font-size:.88em;color:#8a7a5c}
+#loading{text-align:center;padding:40px;color:var(--brown);font-size:1.2em;display:none}
+.daypick{display:none;gap:6px;flex-wrap:wrap}
+@media(max-width:760px){
+  body{font-size:17px}
+  .cal{min-width:640px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>寶嚴禪寺 Zoom 會議室預約系統</h1>
+  <p>南無大方廣佛華嚴經 ｜ 線上申請・即時放行・共見共知</p>
+</header>
+
+<div class="wrap">
+  <div class="notice">⚠️ 會議室 <b>8865224676</b> 禁止申請 ｜ 固定課程時段不開放預約，系統會自動檢查衝突</div>
+
+  <div id="loading">🪷 資料載入中，請稍候⋯⋯</div>
+
+  <!-- 行事曆 -->
+  <div class="card">
+    <h2>📅 會議室行事曆（含固定課程與已預約時段）</h2>
+    <div class="cal-head">
+      <div class="cal-nav">
+        <button class="btn-sm btn-grey" onclick="moveWeek(-1)">◀ 上週</button>
+        <b id="weekLabel"></b>
+        <button class="btn-sm btn-grey" onclick="moveWeek(1)">下週 ▶</button>
+        <button class="btn-sm btn-gold" onclick="goToday()">回到本週</button>
+      </div>
+      <div class="tabs" id="roomTabs"></div>
+    </div>
+    <div class="cal-scroll"><div class="cal" id="calGrid"></div></div>
+    <div class="legend" id="legend"></div>
+    <p class="small" style="margin-top:8px">灰色斜紋＝固定課程（不開放申請）；彩色區塊＝已核准的預約，點選可查看／取消。</p>
+  </div>
+
+  <!-- 預約表單 -->
+  <div class="card">
+    <h2>🙏 申請預約</h2>
+    <form id="bookForm" onsubmit="return submitBook(event)">
+      <div class="grid2">
+        <div><label>申請人姓名 *</label><input id="fName" maxlength="30" required placeholder="請輸入姓名或法名"></div>
+        <div><label>聯絡電話（選填）</label><input id="fPhone" maxlength="20" placeholder="方便聯繫時使用"></div>
+        <div><label>日期 *</label><input id="fDate" type="date" required></div>
+        <div><label>Zoom 會議室號碼 *</label><select id="fRoom" required></select></div>
+        <div><label>開始時間 *</label><select id="fStart" required></select></div>
+        <div><label>結束時間 *</label><select id="fEnd" required></select></div>
+      </div>
+      <label>用途說明（選填）</label>
+      <input id="fPurpose" maxlength="100" placeholder="例如：讀書會、小組共修、線上會議">
+      <button type="submit" class="btn-main" id="bookBtn">送出申請（無衝突即自動放行）</button>
+      <div class="msg" id="bookMsg"></div>
+    </form>
+  </div>
+
+  <!-- 近期預約列表 -->
+  <div class="card">
+    <h2>📋 近期預約一覽</h2>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>日期</th><th>時間</th><th>會議室</th><th>申請人</th><th>用途</th><th></th></tr></thead>
+      <tbody id="listBody"></tbody>
+    </table></div>
+    <p class="small" id="listEmpty" style="display:none;text-align:center;padding:10px">目前尚無預約</p>
+  </div>
+
+  <!-- 固定課程表 -->
+  <div class="card">
+    <h2>🕯️ 固定課程時段（不開放申請）</h2>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>課程</th><th>星期</th><th>時間</th><th>會議室</th></tr></thead>
+      <tbody id="fixedBody"></tbody>
+    </table></div>
+  </div>
+
+  <div style="text-align:center;margin:20px 0">
+    <button class="btn-sm btn-grey" onclick="openAdmin()">🔑 管理人登入</button>
+  </div>
+</div>
+
+<!-- 預約詳情彈窗 -->
+<div class="modal-bg" id="detailBg">
+  <div class="modal">
+    <button class="x" onclick="closeModal('detailBg')">✕</button>
+    <h3>預約詳情</h3>
+    <div id="detailBody"></div>
+    <div id="cancelArea" style="margin-top:14px">
+      <label>輸入取消碼即可取消此預約</label>
+      <div style="display:flex;gap:10px">
+        <input id="cancelCode" maxlength="4" placeholder="4 位數取消碼" style="max-width:180px">
+        <button class="btn-sm btn-red" onclick="doCancel()">取消預約</button>
+      </div>
+    </div>
+    <div class="msg" id="detailMsg"></div>
+  </div>
+</div>
+
+<!-- 管理後台彈窗 -->
+<div class="modal-bg" id="adminBg">
+  <div class="modal" style="max-width:760px">
+    <button class="x" onclick="closeModal('adminBg')">✕</button>
+    <h3>🔑 管理後台</h3>
+    <div id="adminLogin">
+      <label>管理密碼</label>
+      <div style="display:flex;gap:10px">
+        <input id="adminPw" type="password" style="max-width:260px" onkeydown="if(event.key==='Enter')adminLogin()">
+        <button class="btn-sm btn-gold" onclick="adminLogin()">登入</button>
+      </div>
+    </div>
+    <div id="adminPanel" style="display:none">
+      <div class="admin-tabs">
+        <button class="tab on" onclick="adminTab('aBookings',this)">預約管理</button>
+        <button class="tab" onclick="adminTab('aFixed',this)">固定課程</button>
+        <button class="tab" onclick="adminTab('aRooms',this)">會議室</button>
+        <button class="tab" onclick="adminTab('aPw',this)">更改密碼</button>
+      </div>
+      <div id="aBookings">
+        <p class="small">可直接刪除任何預約（不需取消碼）。</p>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>日期</th><th>時間</th><th>會議室</th><th>申請人</th><th>電話</th><th>用途</th><th></th></tr></thead>
+          <tbody id="aBookBody"></tbody>
+        </table></div>
+      </div>
+      <div id="aFixed" style="display:none">
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>課程</th><th>星期</th><th>時間</th><th>會議室</th><th></th></tr></thead>
+          <tbody id="aFixedBody"></tbody>
+        </table></div>
+        <h3 style="margin-top:16px;font-size:1.1em" id="fixedFormTitle">新增固定時段</h3>
+        <input type="hidden" id="xId">
+        <div class="grid2">
+          <div><label>課程名稱</label><input id="xTitle" maxlength="30"></div>
+          <div><label>會議室</label><select id="xRoom"></select></div>
+          <div><label>開始時間</label><select id="xStart"></select></div>
+          <div><label>結束時間</label><select id="xEnd"></select></div>
+        </div>
+        <label>星期（可複選）</label>
+        <div id="xDays" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button class="btn-sm btn-gold" onclick="saveFixed()">儲存</button>
+          <button class="btn-sm btn-grey" onclick="resetFixedForm()">清空</button>
+        </div>
+      </div>
+      <div id="aRooms" style="display:none">
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Zoom 號碼</th><th>名稱</th><th></th></tr></thead>
+          <tbody id="aRoomBody"></tbody>
+        </table></div>
+        <div class="grid2" style="margin-top:12px">
+          <div><label>新 Zoom 號碼</label><input id="rId" maxlength="15" placeholder="純數字"></div>
+          <div><label>名稱</label><input id="rName" maxlength="30" placeholder="例如：法務堂"></div>
+        </div>
+        <button class="btn-sm btn-gold" style="margin-top:12px" onclick="addRoom()">新增會議室</button>
+      </div>
+      <div id="aPw" style="display:none">
+        <label>新管理密碼（至少 6 個字元）</label>
+        <input id="newPw" type="password" style="max-width:280px">
+        <button class="btn-sm btn-gold" style="margin-top:12px" onclick="setPw()">更改密碼</button>
+      </div>
+      <div class="msg" id="adminMsg"></div>
+    </div>
+  </div>
+</div>
+
+<footer>寶嚴禪寺 Zoom 會議室預約系統 ｜ 若時段無衝突系統自動放行 ｜ 固定課程依寶嚴國際佛學研修院課表</footer>
+
+<script>
+var API_URL = 'https://script.google.com/macros/s/AKfycbzky2B5IWWe7niSYCkAyHe5mVtpc5iNlcGecL89iy4tvq-F7IGYcmtMXl8q6w_2YsREwg/exec';
+var DATA = { config: { rooms: [], bannedRooms: [], fixedSlots: [] }, bookings: [], today: null };
+var weekStart = null;      // 本週一 Date
+var roomFilter = 'all';
+var currentDetail = null;
+var adminPw = sessionStorage.getItem('byAdminPw') || '';
+var ROOM_COLORS = ['#2e7d4f', '#1f6f9c', '#a63b2a', '#7b4fa0', '#b8860b', '#5f7d2e'];
+var DAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
+var CAL_START = 5 * 60, CAL_END = 23 * 60, PX_PER_MIN = 44 / 60;
+
+function pad(n) { return ('0' + n).slice(-2); }
+function fmtDate(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function parseDate(s) { return new Date(s + 'T00:00:00'); }
+function toMin(t) { return +t.slice(0, 2) * 60 + +t.slice(3, 5); }
+function roomColor(id) {
+  var idx = DATA.config.rooms.findIndex(function (r) { return r.id === id; });
+  return ROOM_COLORS[(idx >= 0 ? idx : 0) % ROOM_COLORS.length];
+}
+function roomName(id) {
+  var r = DATA.config.rooms.find(function (x) { return x.id === id; });
+  return r ? r.name : id;
+}
+function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) {
+  return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+/* ---------- API ---------- */
+function apiGet() {
+  return fetch(API_URL).then(function (r) { return r.json(); });
+}
+function apiPost(body) {
+  return fetch(API_URL, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body)
+  }).then(function (r) { return r.json(); });
+}
+
+/* ---------- 載入 ---------- */
+function loadAll(silent) {
+  if (!silent) document.getElementById('loading').style.display = 'block';
+  return apiGet().then(function (res) {
+    if (!res.ok) throw new Error(res.error || '載入失敗');
+    DATA = res;
+    if (!weekStart) goToday(true);
+    renderAll();
+  }).catch(function (e) {
+    document.getElementById('loading').textContent = '⚠️ 資料載入失敗：' + e.message + '（請重新整理）';
+  }).finally(function () {
+    if (!silent) document.getElementById('loading').style.display = 'none';
+  });
+}
+
+function renderAll() {
+  renderTabs(); renderCalendar(); renderList(); renderFixedTable();
+  fillBookingForm();
+  if (adminPw && document.getElementById('adminPanel').style.display !== 'none') renderAdmin();
+}
+
+/* ---------- 行事曆 ---------- */
+function goToday(noRender) {
+  var t = DATA.today ? parseDate(DATA.today) : new Date();
+  var dow = (t.getDay() + 6) % 7;  // 週一為首
+  weekStart = new Date(t); weekStart.setDate(t.getDate() - dow);
+  if (!noRender) renderCalendar();
+}
+function moveWeek(n) { weekStart.setDate(weekStart.getDate() + 7 * n); renderCalendar(); }
+
+function renderTabs() {
+  var el = document.getElementById('roomTabs');
+  var html = '<button class="tab' + (roomFilter === 'all' ? ' on' : '') + '" onclick="setRoom(\'all\')">全部會議室</button>';
+  DATA.config.rooms.forEach(function (r) {
+    html += '<button class="tab' + (roomFilter === r.id ? ' on' : '') + '" onclick="setRoom(\'' + r.id + '\')">' + esc(r.name) + '</button>';
+  });
+  el.innerHTML = html;
+  var lg = '<span><span class="dot" style="background:repeating-linear-gradient(45deg,#8a7a5c,#8a7a5c 4px,#7c6d50 4px,#7c6d50 8px)"></span>固定課程</span>';
+  DATA.config.rooms.forEach(function (r) {
+    lg += '<span><span class="dot" style="background:' + roomColor(r.id) + '"></span>' + esc(r.name) + '</span>';
+  });
+  document.getElementById('legend').innerHTML = lg;
+}
+function setRoom(id) { roomFilter = id; renderTabs(); renderCalendar(); }
+
+function renderCalendar() {
+  var grid = document.getElementById('calGrid');
+  var days = [];
+  for (var i = 0; i < 7; i++) { var d = new Date(weekStart); d.setDate(d.getDate() + i); days.push(d); }
+  document.getElementById('weekLabel').textContent =
+    fmtDate(days[0]).slice(5).replace('-', '/') + ' — ' + fmtDate(days[6]).slice(5).replace('-', '/') +
+    '（' + days[0].getFullYear() + '年）';
+
+  var colH = (CAL_END - CAL_START) * PX_PER_MIN;
+  var html = '<div class="hd" style="border-left:none">時間</div>';
+  days.forEach(function (d) {
+    var isToday = fmtDate(d) === DATA.today;
+    html += '<div class="hd' + (isToday ? ' today' : '') + '">週' + DAY_NAMES[d.getDay()] +
+      '<small>' + (d.getMonth() + 1) + '/' + d.getDate() + '</small></div>';
+  });
+  html += '<div class="timecol" style="height:' + colH + 'px">';
+  for (var h = 5; h <= 22; h++) {
+    html += '<span style="top:' + ((h * 60 - CAL_START) * PX_PER_MIN) + 'px">' + pad(h) + ':00</span>';
+  }
+  html += '</div>';
+
+  days.forEach(function (d) {
+    var ds = fmtDate(d), dow = d.getDay();
+    html += '<div class="daycol" style="height:' + colH + 'px">';
+    DATA.config.fixedSlots.forEach(function (f) {
+      if (roomFilter !== 'all' && f.room !== roomFilter) return;
+      if (f.days.indexOf(dow) < 0) return;
+      html += blkHtml(f.start, f.end, 'fixed', '', '', f.title, roomFilter === 'all' ? f.room : '');
+    });
+    DATA.bookings.forEach(function (b) {
+      if (b.date !== ds) return;
+      if (roomFilter !== 'all' && b.room !== roomFilter) return;
+      html += blkHtml(b.start, b.end, 'bk', 'background:' + roomColor(b.room),
+        ' onclick="showDetail(\'' + b.id + '\')"', b.name, roomFilter === 'all' ? b.room : '');
+    });
+    html += '</div>';
+  });
+  grid.innerHTML = html;
+}
+
+function blkHtml(start, end, cls, styleExtra, attrExtra, title, roomLabel) {
+  var top = (toMin(start) - CAL_START) * PX_PER_MIN;
+  var h = Math.max((toMin(end) - toMin(start)) * PX_PER_MIN - 2, 14);
+  return '<div class="blk ' + cls + '" style="top:' + top + 'px;height:' + h + 'px;' + styleExtra + '"' +
+    attrExtra + '>' +
+    '<b>' + esc(title) + '</b>' + start + '–' + end + (roomLabel ? '<br>' + roomLabel : '') + '</div>';
+}
+
+/* ---------- 列表 ---------- */
+function renderList() {
+  var tb = document.getElementById('listBody');
+  var today = DATA.today;
+  var rows = DATA.bookings.filter(function (b) { return b.date >= today; });
+  document.getElementById('listEmpty').style.display = rows.length ? 'none' : 'block';
+  tb.innerHTML = rows.map(function (b) {
+    return '<tr><td>' + b.date + '（' + DAY_NAMES[parseDate(b.date).getDay()] + '）</td>' +
+      '<td>' + b.start + '–' + b.end + '</td>' +
+      '<td><span class="roomtag" style="background:' + roomColor(b.room) + '">' + b.room + '</span></td>' +
+      '<td>' + esc(b.name) + '</td><td>' + esc(b.purpose || '—') + '</td>' +
+      '<td><button class="btn-sm btn-grey" onclick="showDetail(\'' + b.id + '\')">查看</button></td></tr>';
+  }).join('');
+}
+
+function daysText(days) {
+  if (days.length === 7) return '每日';
+  return days.slice().sort().map(function (d) { return '週' + DAY_NAMES[d]; }).join('、');
+}
+
+function renderFixedTable() {
+  document.getElementById('fixedBody').innerHTML = DATA.config.fixedSlots.map(function (f) {
+    return '<tr><td>' + esc(f.title) + '</td><td>' + daysText(f.days) + '</td>' +
+      '<td>' + f.start + '–' + f.end + '</td>' +
+      '<td><span class="roomtag" style="background:' + roomColor(f.room) + '">' + f.room + '</span></td></tr>';
+  }).join('');
+}
+
+/* ---------- 預約表單 ---------- */
+function timeOptions(sel, defVal) {
+  var html = '';
+  for (var m = CAL_START; m <= CAL_END; m += 10) {
+    var t = pad(Math.floor(m / 60)) + ':' + pad(m % 60);
+    html += '<option' + (t === defVal ? ' selected' : '') + '>' + t + '</option>';
+  }
+  sel.innerHTML = html;
+}
+function fillBookingForm() {
+  var sel = document.getElementById('fRoom');
+  sel.innerHTML = DATA.config.rooms.map(function (r) {
+    return '<option value="' + r.id + '">' + esc(r.name) + '（' + r.id + '）</option>';
+  }).join('');
+  var d = document.getElementById('fDate');
+  if (!d.value && DATA.today) { d.value = DATA.today; d.min = DATA.today; }
+  if (!document.getElementById('fStart').options.length) {
+    timeOptions(document.getElementById('fStart'), '19:00');
+    timeOptions(document.getElementById('fEnd'), '20:00');
+  }
+  ['xStart', 'xEnd'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el.options.length) timeOptions(el, id === 'xStart' ? '19:00' : '20:00');
+  });
+}
+
+function showMsg(id, ok, text) {
+  var el = document.getElementById(id);
+  el.className = 'msg ' + (ok ? 'ok' : 'err');
+  el.innerHTML = text;
+}
+
+function submitBook(ev) {
+  ev.preventDefault();
+  var btn = document.getElementById('bookBtn');
+  btn.disabled = true; btn.textContent = '送出中⋯⋯';
+  apiPost({
+    action: 'book',
+    name: document.getElementById('fName').value.trim(),
+    phone: document.getElementById('fPhone').value.trim(),
+    purpose: document.getElementById('fPurpose').value.trim(),
+    date: document.getElementById('fDate').value,
+    start: document.getElementById('fStart').value,
+    end: document.getElementById('fEnd').value,
+    room: document.getElementById('fRoom').value
+  }).then(function (res) {
+    if (res.ok) {
+      showMsg('bookMsg', true, '🙏 ' + res.message + '<br>您的取消碼是 <b style="font-size:1.3em">' + res.code +
+        '</b>，請記下——取消預約時需要用到。');
+      loadAll(true);
+    } else {
+      showMsg('bookMsg', false, '❌ ' + (res.error || '預約失敗'));
+    }
+  }).catch(function () {
+    showMsg('bookMsg', false, '❌ 連線失敗，請稍後再試');
+  }).finally(function () {
+    btn.disabled = false; btn.textContent = '送出申請（無衝突即自動放行）';
+  });
+  return false;
+}
+
+/* ---------- 詳情/取消 ---------- */
+function showDetail(id) {
+  var b = DATA.bookings.find(function (x) { return x.id === id; });
+  if (!b) return;
+  currentDetail = b;
+  document.getElementById('detailBody').innerHTML =
+    '<p><b>申請人：</b>' + esc(b.name) + '</p>' +
+    '<p><b>日期：</b>' + b.date + '（週' + DAY_NAMES[parseDate(b.date).getDay()] + '）</p>' +
+    '<p><b>時間：</b>' + b.start + '–' + b.end + '</p>' +
+    '<p><b>會議室：</b>' + esc(roomName(b.room)) + '（' + b.room + '）</p>' +
+    (b.purpose ? '<p><b>用途：</b>' + esc(b.purpose) + '</p>' : '') +
+    '<p class="small">申請於 ' + esc(b.createdAt || '') + '</p>';
+  document.getElementById('cancelCode').value = '';
+  document.getElementById('detailMsg').className = 'msg';
+  document.getElementById('detailBg').classList.add('show');
+}
+function doCancel() {
+  if (!currentDetail) return;
+  var code = document.getElementById('cancelCode').value.trim();
+  if (!code) { showMsg('detailMsg', false, '請輸入取消碼'); return; }
+  apiPost({ action: 'cancel', id: currentDetail.id, code: code }).then(function (res) {
+    if (res.ok) {
+      showMsg('detailMsg', true, '✅ ' + res.message);
+      loadAll(true).then(function () { setTimeout(function () { closeModal('detailBg'); }, 900); });
+    } else showMsg('detailMsg', false, '❌ ' + res.error);
+  }).catch(function () { showMsg('detailMsg', false, '❌ 連線失敗'); });
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+/* ---------- 管理後台 ---------- */
+function openAdmin() {
+  document.getElementById('adminBg').classList.add('show');
+  if (adminPw) { document.getElementById('adminLogin').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'block'; renderAdmin(); }
+}
+function adminLogin() {
+  var pw = document.getElementById('adminPw').value;
+  if (!pw) return;
+  apiPost({ action: 'admin', op: 'verify', password: pw }).then(function (res) {
+    if (res.ok) {
+      adminPw = pw; sessionStorage.setItem('byAdminPw', pw);
+      document.getElementById('adminLogin').style.display = 'none';
+      document.getElementById('adminPanel').style.display = 'block';
+      renderAdmin();
+    } else alert(res.error || '密碼錯誤');
+  });
+}
+function adminTab(id, btn) {
+  ['aBookings', 'aFixed', 'aRooms', 'aPw'].forEach(function (x) {
+    document.getElementById(x).style.display = x === id ? 'block' : 'none';
+  });
+  document.querySelectorAll('.admin-tabs .tab').forEach(function (t) { t.classList.remove('on'); });
+  btn.classList.add('on');
+}
+function renderAdmin() {
+  document.getElementById('aBookBody').innerHTML = DATA.bookings.map(function (b) {
+    return '<tr><td>' + b.date + '</td><td>' + b.start + '–' + b.end + '</td>' +
+      '<td>' + b.room + '</td><td>' + esc(b.name) + '</td><td>' + esc(b.phone || '—') + '</td>' +
+      '<td>' + esc(b.purpose || '—') + '</td>' +
+      '<td><button class="btn-sm btn-red" onclick="adminDelBooking(\'' + b.id + '\')">刪除</button></td></tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center">尚無預約</td></tr>';
+
+  document.getElementById('aFixedBody').innerHTML = DATA.config.fixedSlots.map(function (f) {
+    return '<tr><td>' + esc(f.title) + '</td><td>' + daysText(f.days) + '</td>' +
+      '<td>' + f.start + '–' + f.end + '</td><td>' + f.room + '</td>' +
+      '<td><button class="btn-sm btn-grey" onclick="editFixed(\'' + f.id + '\')">編輯</button> ' +
+      '<button class="btn-sm btn-red" onclick="delFixed(\'' + f.id + '\')">刪除</button></td></tr>';
+  }).join('');
+
+  var xr = document.getElementById('xRoom');
+  xr.innerHTML = DATA.config.rooms.map(function (r) {
+    return '<option value="' + r.id + '">' + esc(r.name) + '（' + r.id + '）</option>';
+  }).join('');
+  var xd = document.getElementById('xDays');
+  if (!xd.children.length) {
+    xd.innerHTML = DAY_NAMES.map(function (n, i) {
+      return '<label style="display:inline-flex;align-items:center;gap:4px;font-weight:400">' +
+        '<input type="checkbox" class="xday" value="' + i + '" style="width:20px;height:20px">週' + n + '</label>';
+    }).join('');
+  }
+
+  document.getElementById('aRoomBody').innerHTML = DATA.config.rooms.map(function (r) {
+    return '<tr><td>' + r.id + '</td><td>' + esc(r.name) + '</td>' +
+      '<td><button class="btn-sm btn-red" onclick="delRoom(\'' + r.id + '\')">移除</button></td></tr>';
+  }).join('');
+}
+function adminApi(body, refresh) {
+  body.action = 'admin'; body.password = adminPw;
+  return apiPost(body).then(function (res) {
+    showMsg('adminMsg', res.ok, res.ok ? '✅ ' + res.message : '❌ ' + res.error);
+    if (res.ok && refresh !== false) return loadAll(true).then(function () { renderAdmin(); });
+  }).catch(function () { showMsg('adminMsg', false, '❌ 連線失敗'); });
+}
+function adminDelBooking(id) {
+  if (!confirm('確定刪除這筆預約？')) return;
+  adminApi({ op: 'deleteBooking', id: id });
+}
+function editFixed(id) {
+  var f = DATA.config.fixedSlots.find(function (x) { return x.id === id; });
+  if (!f) return;
+  document.getElementById('xId').value = f.id;
+  document.getElementById('xTitle').value = f.title;
+  document.getElementById('xRoom').value = f.room;
+  document.getElementById('xStart').value = f.start;
+  document.getElementById('xEnd').value = f.end;
+  document.querySelectorAll('.xday').forEach(function (c) { c.checked = f.days.indexOf(+c.value) >= 0; });
+  document.getElementById('fixedFormTitle').textContent = '編輯固定時段：' + f.title;
+}
+function resetFixedForm() {
+  document.getElementById('xId').value = '';
+  document.getElementById('xTitle').value = '';
+  document.querySelectorAll('.xday').forEach(function (c) { c.checked = false; });
+  document.getElementById('fixedFormTitle').textContent = '新增固定時段';
+}
+function saveFixed() {
+  var days = Array.prototype.map.call(document.querySelectorAll('.xday:checked'),
+    function (c) { return +c.value; });
+  var slot = {
+    title: document.getElementById('xTitle').value.trim(),
+    room: document.getElementById('xRoom').value,
+    start: document.getElementById('xStart').value,
+    end: document.getElementById('xEnd').value,
+    days: days
+  };
+  if (!slot.title || !days.length) { showMsg('adminMsg', false, '❌ 請填寫課程名稱並勾選星期'); return; }
+  var id = document.getElementById('xId').value;
+  adminApi(id ? { op: 'updateFixed', slotId: id, slot: slot } : { op: 'addFixed', slot: slot })
+    .then(resetFixedForm);
+}
+function delFixed(id) {
+  if (!confirm('確定刪除此固定時段？刪除後該時段將開放預約。')) return;
+  adminApi({ op: 'delFixed', slotId: id });
+}
+function addRoom() {
+  var id = document.getElementById('rId').value.trim();
+  var name = document.getElementById('rName').value.trim();
+  adminApi({ op: 'addRoom', room: { id: id, name: name || id } });
+}
+function delRoom(id) {
+  if (!confirm('確定移除會議室 ' + id + '？')) return;
+  adminApi({ op: 'delRoom', roomId: id });
+}
+function setPw() {
+  var np = document.getElementById('newPw').value;
+  adminApi({ op: 'setPassword', newPassword: np }, false).then(function () {
+    adminPw = np; sessionStorage.setItem('byAdminPw', np);
+  });
+}
+
+/* ---------- 啟動 ---------- */
+loadAll();
+setInterval(function () { loadAll(true); }, 60000);
+</script>
+</body>
+</html>
