@@ -66,6 +66,9 @@ button{cursor:pointer;font-size:1.1em;font-weight:700;border:none;border-radius:
 .blk.fixed{background:repeating-linear-gradient(45deg,#8a7a5c,#8a7a5c 8px,#7c6d50 8px,#7c6d50 16px);
   border:1px solid #6b5d44}
 .blk.bk{cursor:pointer}
+.blkx{position:absolute;top:2px;right:3px;width:18px;height:18px;line-height:18px;text-align:center;
+  background:rgba(0,0,0,.28);border-radius:50%;cursor:pointer;font-size:11px;font-weight:700}
+.blkx:hover{background:var(--red)}
 .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:.92em}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .dot{width:16px;height:16px;border-radius:5px;display:inline-block}
@@ -141,8 +144,8 @@ footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
         <div><label>開始時間 *</label><select id="fStart" required></select></div>
         <div><label>結束時間 *</label><select id="fEnd" required></select></div>
       </div>
-      <label>用途說明（選填）</label>
-      <input id="fPurpose" maxlength="100" placeholder="例如：讀書會、小組共修、線上會議">
+      <label>活動名稱 *（會顯示在行事曆上）</label>
+      <input id="fPurpose" maxlength="100" required placeholder="例如：讀書會、小組共修、線上會議">
       <button type="submit" class="btn-main" id="bookBtn">送出申請（無衝突即自動放行）</button>
       <div class="msg" id="bookMsg"></div>
     </form>
@@ -152,7 +155,7 @@ footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
   <div class="card">
     <h2>📋 近期預約一覽</h2>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>日期</th><th>時間</th><th>會議室</th><th>申請人</th><th>用途</th><th></th></tr></thead>
+      <thead><tr><th>日期</th><th>時間</th><th>會議室</th><th>活動名稱</th><th>申請人</th><th>操作</th></tr></thead>
       <tbody id="listBody"></tbody>
     </table></div>
     <p class="small" id="listEmpty" style="display:none;text-align:center;padding:10px">目前尚無預約</p>
@@ -368,25 +371,34 @@ function renderCalendar() {
     DATA.config.fixedSlots.forEach(function (f) {
       if (roomFilter !== 'all' && f.room !== roomFilter) return;
       if (f.days.indexOf(dow) < 0) return;
-      html += blkHtml(f.start, f.end, 'fixed', '', '', f.title, roomFilter === 'all' ? f.room : '');
+      html += blkHtml(f.start, f.end, 'fixed', '', '', f.title, '', roomFilter === 'all' ? f.room : '', null);
     });
     DATA.bookings.forEach(function (b) {
       if (b.date !== ds) return;
       if (roomFilter !== 'all' && b.room !== roomFilter) return;
       html += blkHtml(b.start, b.end, 'bk', 'background:' + roomColor(b.room),
-        ' onclick="showDetail(\'' + b.id + '\')"', b.name, roomFilter === 'all' ? b.room : '');
+        ' onclick="showDetail(\'' + b.id + '\')"', b.purpose || b.name, b.name,
+        roomFilter === 'all' ? b.room : '', b.id);
     });
     html += '</div>';
   });
   grid.innerHTML = html;
 }
 
-function blkHtml(start, end, cls, styleExtra, attrExtra, title, roomLabel) {
+function blkHtml(start, end, cls, styleExtra, attrExtra, title, sub, roomLabel, cancelId) {
   var top = (toMin(start) - CAL_START) * PX_PER_MIN;
   var h = Math.max((toMin(end) - toMin(start)) * PX_PER_MIN - 2, 14);
   return '<div class="blk ' + cls + '" style="top:' + top + 'px;height:' + h + 'px;' + styleExtra + '"' +
     attrExtra + '>' +
-    '<b>' + esc(title) + '</b>' + start + '–' + end + (roomLabel ? '<br>' + roomLabel : '') + '</div>';
+    (cancelId ? '<span class="blkx" title="取消預約" ' +
+      'onclick="event.stopPropagation();openCancel(\'' + cancelId + '\')">✕</span>' : '') +
+    '<b>' + esc(title) + '</b>' + start + '–' + end +
+    (sub ? '<br>' + esc(sub) : '') + (roomLabel ? '<br>' + roomLabel : '') + '</div>';
+}
+
+function openCancel(id) {
+  showDetail(id);
+  setTimeout(function () { document.getElementById('cancelCode').focus(); }, 150);
 }
 
 /* ---------- 列表 ---------- */
@@ -399,8 +411,9 @@ function renderList() {
     return '<tr><td>' + b.date + '（' + DAY_NAMES[parseDate(b.date).getDay()] + '）</td>' +
       '<td>' + b.start + '–' + b.end + '</td>' +
       '<td><span class="roomtag" style="background:' + roomColor(b.room) + '">' + b.room + '</span></td>' +
-      '<td>' + esc(b.name) + '</td><td>' + esc(b.purpose || '—') + '</td>' +
-      '<td><button class="btn-sm btn-grey" onclick="showDetail(\'' + b.id + '\')">查看</button></td></tr>';
+      '<td>' + esc(b.purpose || '—') + '</td><td>' + esc(b.name) + '</td>' +
+      '<td style="white-space:nowrap"><button class="btn-sm btn-grey" onclick="showDetail(\'' + b.id + '\')">查看</button> ' +
+      '<button class="btn-sm btn-red" title="取消預約" onclick="openCancel(\'' + b.id + '\')">🗑️ 取消</button></td></tr>';
   }).join('');
 }
 
@@ -418,9 +431,9 @@ function renderFixedTable() {
 }
 
 /* ---------- 預約表單 ---------- */
-function timeOptions(sel, defVal) {
+function timeOptions(sel, defVal, step) {
   var html = '';
-  for (var m = CAL_START; m <= CAL_END; m += 10) {
+  for (var m = CAL_START; m <= CAL_END; m += (step || 30)) {
     var t = pad(Math.floor(m / 60)) + ':' + pad(m % 60);
     html += '<option' + (t === defVal ? ' selected' : '') + '>' + t + '</option>';
   }
@@ -439,7 +452,7 @@ function fillBookingForm() {
   }
   ['xStart', 'xEnd'].forEach(function (id) {
     var el = document.getElementById(id);
-    if (!el.options.length) timeOptions(el, id === 'xStart' ? '19:00' : '20:00');
+    if (!el.options.length) timeOptions(el, id === 'xStart' ? '19:00' : '20:00', 10); // 固定課程細到10分
   });
 }
 
@@ -454,6 +467,10 @@ function submitBook(ev) {
   var roomVal = document.getElementById('fRoom').value.trim();
   if (!/^\d{10}$/.test(roomVal)) {
     showMsg('bookMsg', false, '❌ Zoom 會議室號碼必須是 10 碼數字（目前輸入 ' + roomVal.length + ' 碼）');
+    return false;
+  }
+  if (!document.getElementById('fPurpose').value.trim()) {
+    showMsg('bookMsg', false, '❌ 請填寫活動名稱（會顯示在行事曆上）');
     return false;
   }
   var btn = document.getElementById('bookBtn');
@@ -489,11 +506,11 @@ function showDetail(id) {
   if (!b) return;
   currentDetail = b;
   document.getElementById('detailBody').innerHTML =
+    '<p><b>活動名稱：</b>' + esc(b.purpose || '—') + '</p>' +
     '<p><b>申請人：</b>' + esc(b.name) + '</p>' +
     '<p><b>日期：</b>' + b.date + '（週' + DAY_NAMES[parseDate(b.date).getDay()] + '）</p>' +
     '<p><b>時間：</b>' + b.start + '–' + b.end + '</p>' +
     '<p><b>會議室：</b>' + esc(roomName(b.room)) + '（' + b.room + '）</p>' +
-    (b.purpose ? '<p><b>用途：</b>' + esc(b.purpose) + '</p>' : '') +
     '<p class="small">申請於 ' + esc(b.createdAt || '') + '</p>';
   document.getElementById('cancelCode').value = '';
   document.getElementById('detailMsg').className = 'msg';

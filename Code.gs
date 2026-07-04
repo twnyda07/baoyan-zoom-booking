@@ -200,9 +200,13 @@ function apiBook(req) {
 
   if (!name) return { ok: false, error: '請填寫申請人姓名' };
   if (name.length > 30) return { ok: false, error: '姓名過長' };
-  if (purpose.length > 100) return { ok: false, error: '用途說明過長' };
+  if (!purpose) return { ok: false, error: '請填寫活動名稱' };
+  if (purpose.length > 100) return { ok: false, error: '活動名稱過長' };
   if (!isValidDate(date)) return { ok: false, error: '日期格式錯誤' };
   if (!isValidTime(start) || !isValidTime(end)) return { ok: false, error: '時間格式錯誤' };
+  if (+start.slice(3) % 30 !== 0 || +end.slice(3) % 30 !== 0) {
+    return { ok: false, error: '開始與結束時間須以整點或半點為單位（例如 19:00、19:30）' };
+  }
   if (start >= end) return { ok: false, error: '結束時間必須晚於開始時間' };
 
   var today = todayStr();
