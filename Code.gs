@@ -15,13 +15,15 @@ function defaultConfig() {
     adminPassword: 'baoyan2026',
     rooms: [
       { id: '8896316212', name: '889 631 6212' },
-      { id: '2023101199', name: '202 310 1199（觀心堂）' },
+      { id: '2023101199', name: '202 310 1199（觀心一支香）' },
       { id: '4079019912', name: '407 901 9912' },
       { id: '8865224676', name: '886 522 4676' },
-      { id: '5224676123', name: '522 467 6123（華嚴堂）' },
+      { id: '5224676123', name: '522 467 6123（華嚴經共修）' },
       { id: '8865224678', name: '886 522 4678' }
     ],
-    bannedRooms: [],
+    bannedRooms: [
+      { id: '5224676123', reason: '不開放申請' }
+    ],
     fixedSlots: [
       { id: 'f1', title: '觀心一支香', room: '2023101199', days: all, start: '07:00', end: '07:40' },
       { id: 'f2', title: '晨讀教觀綱宗', room: '2023101199', days: all, start: '07:40', end: '08:20' },
@@ -206,7 +208,8 @@ function apiBook(req) {
   if (name.length > 30) return { ok: false, error: '姓名過長' };
   if (!purpose) return { ok: false, error: '請填寫活動名稱' };
   if (purpose.length > 100) return { ok: false, error: '活動名稱過長' };
-  if (email && (email.length > 60 || !isValidEmail(email))) return { ok: false, error: 'Email 格式不正確' };
+  if (!email) return { ok: false, error: '請填寫 Email（忘記取消碼時用來找回預約）' };
+  if (email.length > 60 || !isValidEmail(email)) return { ok: false, error: 'Email 格式不正確' };
   if (!isValidDate(date)) return { ok: false, error: '日期格式錯誤' };
   if (!isValidTime(start) || !isValidTime(end)) return { ok: false, error: '時間格式錯誤' };
   if (+start.slice(3) % 30 !== 0 || +end.slice(3) % 30 !== 0) {
