@@ -354,8 +354,14 @@ function moveWeek(n) { weekStart.setDate(weekStart.getDate() + 7 * n); renderCal
 function renderNotice() {
   var banned = DATA.config.bannedRooms.map(function (b) { return fmtRoom(b.id); }).join('、');
   document.getElementById('noticeBar').innerHTML = '⚠️ ' +
-    (banned ? '會議室 <b>' + banned + '</b> 禁止申請 ｜ ' : '') +
+    (banned ? '下列會議室為特殊用途，<b>不開放申請</b>：' + banned + '（行事曆仍會顯示其既有時段）｜ ' : '') +
     '固定課程時段不開放預約，系統會自動檢查衝突';
+}
+
+// 回傳不開放申請的原因（可申請則回 null）
+function bannedReason(roomId) {
+  var hit = DATA.config.bannedRooms.filter(function (b) { return b.id === roomId; })[0];
+  return hit ? (hit.reason || '不開放申請') : null;
 }
 
 function renderTabs() {
@@ -511,6 +517,11 @@ function submitBook(ev) {
   var roomVal = getRoomValue();
   if (!/^\d{10}$/.test(roomVal)) {
     showMsg('bookMsg', false, '❌ Zoom 會議室號碼必須是 10 碼數字（目前輸入 ' + roomVal.length + ' 碼）');
+    return false;
+  }
+  var why = bannedReason(roomVal);
+  if (why) {
+    showMsg('bookMsg', false, '❌ 會議室 ' + fmtRoom(roomVal) + '：' + why + '，請改選其他會議室');
     return false;
   }
   if (!document.getElementById('fPurpose').value.trim()) {

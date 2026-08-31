@@ -14,48 +14,123 @@ function props() { return PropertiesService.getScriptProperties(); }
 
 function todayStr() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'); }
 
-function defaultConfig() {
-  var all = [0, 1, 2, 3, 4, 5, 6];
+// 管理密碼不寫在程式裡（本檔會同步到公開 repo）。第一次初始化時從
+// Script Property「ADMIN_PASSWORD」取；沒設就隨機產生一組並寫回該 property，
+// 之後在「專案設定 → 指令碼屬性」看得到，也可在頁尾管理後台自行更改。
+function initialAdminPassword() {
+  var p = props().getProperty('ADMIN_PASSWORD');
+  if (!p) {
+    p = 'pw-' + Utilities.getUuid().slice(0, 8);
+    props().setProperty('ADMIN_PASSWORD', p);
+  }
+  return p;
+}
+
+// 改了 roomCatalog() 就把這個字串一起改掉，下次有人開頁面時會自動套用一次到線上設定
+var CATALOG_VERSION = '2026-08-31-特殊會議室+華嚴三卷';
+
+// 會議室清單與「不開放申請」清單（前後端都以此為準；管理後台可再調整）
+function roomCatalog() {
   return {
-    adminPassword: 'baoyan2026',
     rooms: [
       { id: '8896316212', name: '889 631 6212' },
       { id: '2023101199', name: '202 310 1199（觀心一支香）' },
       { id: '4079019912', name: '407 901 9912' },
-      { id: '8865224676', name: '886 522 4676' },
+      { id: '8865224676', name: '886 522 4676（特殊會議室）' },
       { id: '5224676123', name: '522 467 6123（華嚴經共修）' },
-      { id: '8865224678', name: '886 522 4678' }
+      { id: '8865224678', name: '886 522 4678' },
+      { id: '2328956604', name: '232 895 6604（特殊會議室）' },
+      { id: '3215224676', name: '321 522 4676（特殊會議室・常住會議）' }
     ],
     bannedRooms: [
-      { id: '5224676123', reason: '不開放申請' }
-    ],
-    fixedSlots: [
-      { id: 'f1', title: '觀心一支香', room: '2023101199', days: all, start: '07:00', end: '07:40' },
-      { id: 'f2', title: '晨讀教觀綱宗', room: '2023101199', days: all, start: '07:40', end: '08:20' },
-      { id: 'f3', title: '英文課', room: '2023101199', days: [1, 3, 4, 5], start: '20:00', end: '21:00' },
-      { id: 'f4', title: '英文禪修', room: '2023101199', days: [3], start: '19:00', end: '20:00' },
-      { id: 'f5', title: '瑜伽師地論', room: '2023101199', days: [2], start: '19:30', end: '21:30' },
-      { id: 'f6', title: '騰雲華嚴六卷組', room: '5224676123', days: all, start: '06:20', end: '08:30' },
-      { id: 'f7', title: '童童華嚴', room: '5224676123', days: [1, 3, 4, 5], start: '20:30', end: '21:00' },
-      { id: 'f8', title: '華嚴經三卷（早）', room: '8835224601', days: all, start: '05:00', end: '06:30' },
-      { id: 'f9', title: '華嚴經三卷（午前）', room: '8835224601', days: all, start: '07:00', end: '08:30' },
-      { id: 'f10', title: '華嚴經三卷（下午）', room: '8835224601', days: all, start: '16:30', end: '18:00' },
-      { id: 'f11', title: '華嚴經三卷（晚）', room: '8835224601', days: all, start: '20:00', end: '21:30' },
-      { id: 'f12', title: '常住會議', room: '3215224676', days: [5], start: '08:00', end: '12:00' }
-    ],
-    nextFixedId: 13
+      { id: '5224676123', reason: '華嚴經共修專用，不開放申請' },
+      { id: '8865224676', reason: '特殊會議室，不開放申請' },
+      { id: '2328956604', reason: '特殊會議室，不開放申請' },
+      { id: '3215224676', reason: '特殊會議室，不開放申請' }
+    ]
   };
+}
+
+function defaultConfig() {
+  var cat = roomCatalog();
+  return {
+    adminPassword: initialAdminPassword(),
+    rooms: cat.rooms,
+    bannedRooms: cat.bannedRooms,
+    fixedSlots: fixedSlotCatalog(),
+    nextFixedId: 17
+  };
+}
+
+// 固定課程時段（不開放申請，行事曆以灰色斜紋顯示）
+function fixedSlotCatalog() {
+  var all = [0, 1, 2, 3, 4, 5, 6];
+  return [
+    { id: 'f1', title: '觀心一支香', room: '2023101199', days: all, start: '07:00', end: '07:40' },
+    { id: 'f2', title: '晨讀教觀綱宗', room: '2023101199', days: all, start: '07:40', end: '08:20' },
+    { id: 'f3', title: '英文課', room: '2023101199', days: [1, 3, 4, 5], start: '20:00', end: '21:00' },
+    { id: 'f4', title: '英文禪修', room: '2023101199', days: [3], start: '19:00', end: '20:00' },
+    { id: 'f5', title: '瑜伽師地論', room: '2023101199', days: [2], start: '19:30', end: '21:30' },
+    { id: 'f6', title: '騰雲華嚴六卷組', room: '5224676123', days: all, start: '06:20', end: '08:30' },
+    { id: 'f7', title: '童童華嚴', room: '5224676123', days: [1, 3, 4, 5], start: '20:30', end: '21:00' },
+    { id: 'f8', title: '華嚴經三卷（早）', room: '8835224601', days: all, start: '05:00', end: '06:30' },
+    { id: 'f9', title: '華嚴經三卷（午前）', room: '8835224601', days: all, start: '07:00', end: '08:30' },
+    { id: 'f10', title: '華嚴經三卷（下午）', room: '8835224601', days: all, start: '16:30', end: '18:00' },
+    { id: 'f11', title: '華嚴經三卷（晚）', room: '8835224601', days: all, start: '20:00', end: '21:30' },
+    { id: 'f12', title: '常住會議', room: '3215224676', days: [5], start: '08:00', end: '12:00' },
+    // 8865224676 的上課時間與華嚴經三卷組相同，一併列為固定課程（該會議室本身也不開放申請）
+    { id: 'f13', title: '華嚴經三卷（早）', room: '8865224676', days: all, start: '05:00', end: '06:30' },
+    { id: 'f14', title: '華嚴經三卷（午前）', room: '8865224676', days: all, start: '07:00', end: '08:30' },
+    { id: 'f15', title: '華嚴經三卷（下午）', room: '8865224676', days: all, start: '16:30', end: '18:00' },
+    { id: 'f16', title: '華嚴經三卷（晚）', room: '8865224676', days: all, start: '20:00', end: '21:30' }
+  ];
 }
 
 function getConfig() {
   var raw = props().getProperty('config');
-  if (raw) return JSON.parse(raw);
+  if (raw) {
+    var cfg = JSON.parse(raw);
+    // CATALOG_VERSION 換新時，自動把會議室／不開放／固定課程清單套用一次
+    // （只做一次；之後在後台手動改的設定會保留，除非再換一次版本字串）
+    if (props().getProperty('catalogVersion') !== CATALOG_VERSION) {
+      var cat = roomCatalog();
+      cfg.rooms = cat.rooms;
+      cfg.bannedRooms = cat.bannedRooms;
+      cfg.fixedSlots = fixedSlotCatalog();
+      cfg.nextFixedId = Math.max(cfg.nextFixedId || 0, 17);
+      saveConfig(cfg);
+      props().setProperty('catalogVersion', CATALOG_VERSION);
+    }
+    return cfg;
+  }
   var def = defaultConfig();
   props().setProperty('config', JSON.stringify(def));
+  props().setProperty('catalogVersion', CATALOG_VERSION);
   return def;
 }
 
 function saveConfig(cfg) { props().setProperty('config', JSON.stringify(cfg)); }
+
+/**
+ * 維護用：把 roomCatalog() 的會議室／不開放清單重新套用到現行設定。
+ * 平常不需要執行——改完 roomCatalog() 只要一併改 CATALOG_VERSION，部署後會自動套用一次。
+ * 這個函式是給「想立刻覆蓋掉後台手動改動」時用的，可重複執行；
+ * 不會動到管理密碼、固定課程，也不會動到任何既有預約。
+ */
+function 套用會議室清單() {
+  var cfg = getConfig();
+  var cat = roomCatalog();
+  cfg.rooms = cat.rooms;
+  cfg.bannedRooms = cat.bannedRooms;
+  cfg.fixedSlots = fixedSlotCatalog();
+  cfg.nextFixedId = Math.max(cfg.nextFixedId || 0, 17);
+  saveConfig(cfg);
+  props().setProperty('catalogVersion', CATALOG_VERSION);
+  var banned = cat.bannedRooms.map(function (b) { return b.id; });
+  var open = cat.rooms.filter(function (r) { return banned.indexOf(r.id) < 0; }).map(function (r) { return r.id; });
+  console.log('可申請：' + open.join('、') + '\n不開放：' + banned.join('、'));
+  return { open: open, banned: banned };
+}
 
 function publicConfig(cfg) {
   return { rooms: cfg.rooms, bannedRooms: cfg.bannedRooms, fixedSlots: cfg.fixedSlots };
