@@ -5,7 +5,9 @@
 ## 架構
 - **前端**：本 repo 的 `index.html`，GitHub Pages 靜態頁
 - **後端**：Google Apps Script Web App（twnyda07@gmail.com 帳號下，專案名「寶嚴禪寺zoom會議室預約系統後端」）
-  - 資料存於 Script Properties：`config`（會議室／固定課程／管理密碼）、`bookings_YYYY-MM`（每月預約，每月上限約 60 筆）
+  - 資料存於 Script Properties：`config`（會議室／固定課程／管理密碼）、`bookings_YYYY-MM`（每月預約）
+  - **單筆 Script Property 上限 9KB**，因此每月預約超過約 30 筆就會自動分片存成 `bookings_YYYY-MM`、`bookings_YYYY-MM~1`、`~2`……；讀取時由 `loadMonth()` 併回一份。每月上限 300 筆（`MAX_MONTH_BOOKINGS`）
+  - ⚠️ 2026-08-31 修正：舊版把整月塞在單一 property 並在 8300 字元處硬擋，7 月與 8 月都在月中被塞滿，之後該月任何會議室都回「該月份預約已滿」——外觀上很像「某間會議室不能約」。改分片後解除
   - API 網址寫在 `index.html` 的 `API_URL`
   - 後端原始碼備份：`Code.gs`
 
@@ -26,4 +28,11 @@
 - 以上皆可由管理後台調整
 
 ## 修改後端
-到 script.google.com（twnyda07 帳號）→ 專案「寶嚴禪寺zoom會議室預約系統後端」→ 改完程式後 **部署 → 管理部署作業 → 編輯 → 版本選「新版本」→ 部署**（沿用同一網址）。
+到 script.google.com（twnyda07 帳號，本機 Chrome 是 `authuser=1`）→ 專案「寶嚴禪寺zoom會議室預約系統後端」
+（script id `1W60KzdiA8M8GXhmY-rSnbP322ig_iBfJ4EuVfYeFwo1BXjXemkpWJN_h`）→ 改完程式後
+**Deploy → Manage deployments → 鉛筆編輯 → Version 選「New version」→ Deploy**（沿用同一網址）。
+改完務必直接打 API 驗證，不要只看網頁有沒有開起來：
+
+```bash
+curl -sL 'https://script.google.com/macros/s/AKfycbzky2B5IWWe7niSYCkAyHe5mVtpc5iNlcGecL89iy4tvq-F7IGYcmtMXl8q6w_2YsREwg/exec' | head -c 300
+```

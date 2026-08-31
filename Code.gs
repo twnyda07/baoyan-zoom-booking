@@ -5,6 +5,11 @@
 
 var TZ = 'Asia/Taipei';
 
+// Script Property 單筆上限 9KB；預約按月存，超過上限自動分片成 bookings_YYYY-MM、~1、~2……
+var CHUNK_BYTES = 6500;   // 每片 JSON 位元組上限（留足安全邊際）
+var MAX_CHUNKS = 20;      // 每月最多片數
+var MAX_MONTH_BOOKINGS = 300; // 每月預約筆數上限
+
 function props() { return PropertiesService.getScriptProperties(); }
 
 function todayStr() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'); }
@@ -60,14 +65,52 @@ function publicConfig(cfg) {
 
 function monthKeyOf(dateStr) { return 'bookings_' + dateStr.slice(0, 7); }
 
+// 第 0 片沿用原本的 bookings_YYYY-MM（與舊資料相容），第 1 片起加上 ~n
+function chunkKey(mk, i) { return i === 0 ? mk : mk + '~' + i; }
+
+// JSON 字串的 UTF-8 位元組長度（中文 3 bytes，不能只算字元數）
+function byteLen(s) {
+  var n = 0;
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    n += c < 0x80 ? 1 : c < 0x800 ? 2 : (c >= 0xD800 && c < 0xE000) ? 2 : 3;
+  }
+  return n;
+}
+
 function loadMonth(mk) {
-  var raw = props().getProperty(mk);
-  return raw ? JSON.parse(raw) : [];
+  var out = [];
+  for (var i = 0; i < MAX_CHUNKS; i++) {
+    var raw = props().getProperty(chunkKey(mk, i));
+    if (!raw) break;
+    out = out.concat(JSON.parse(raw));
+  }
+  return out;
 }
 
 function saveMonth(mk, arr) {
-  if (arr.length) props().setProperty(mk, JSON.stringify(arr));
-  else props().deleteProperty(mk);
+  var chunks = [], cur = [], curBytes = 2; // 2＝[]
+  arr.forEach(function (b) {
+    var bytes = byteLen(JSON.stringify(b)) + 1; // +1＝逗號
+    if (cur.length && curBytes + bytes > CHUNK_BYTES) { chunks.push(cur); cur = []; curBytes = 2; }
+    cur.push(b); curBytes += bytes;
+  });
+  if (cur.length) chunks.push(cur);
+
+  for (var i = 0; i < chunks.length; i++) {
+    props().setProperty(chunkKey(mk, i), JSON.stringify(chunks[i]));
+  }
+  // 清掉本次沒用到的舊分片（片號連續，遇到空的就停）
+  for (var j = chunks.length; j < MAX_CHUNKS; j++) {
+    var k = chunkKey(mk, j);
+    if (props().getProperty(k) === null) break;
+    props().deleteProperty(k);
+  }
+}
+
+// 只回傳「第 0 片」的鍵；分片鍵由 loadMonth 一併讀出，不可重複掃描
+function monthBaseKeys() {
+  return props().getKeys().filter(function (k) { return /^bookings_\d{4}-\d{2}$/.test(k); });
 }
 
 function monthsBetween(fromStr, toStr) {
@@ -93,9 +136,8 @@ function loadBookings(fromStr, toStr) {
 }
 
 function findBooking(id) {
-  var keys = props().getKeys();
+  var keys = monthBaseKeys();
   for (var i = 0; i < keys.length; i++) {
-    if (keys[i].indexOf('bookings_') !== 0) continue;
     var arr = loadMonth(keys[i]);
     for (var j = 0; j < arr.length; j++) {
       if (arr[j].id === id) return { key: keys[i], arr: arr, idx: j };
@@ -193,6 +235,17 @@ function doPost(e) {
 
 function isValidEmail(s) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s); }
 
+// 產生不與同月現有預約重複的編號（同一毫秒內連續送出時，只靠亂數會撞號，撞號會取消到別人的預約）
+function newBookingId(monthArr) {
+  for (var t = 0; t < 20; t++) {
+    var id = 'b' + Date.now() + Math.floor(100000 + Math.random() * 900000);
+    var dup = false;
+    for (var i = 0; i < monthArr.length; i++) { if (monthArr[i].id === id) { dup = true; break; } }
+    if (!dup) return id;
+  }
+  return 'b' + Date.now() + Utilities.getUuid().slice(0, 8);
+}
+
 function apiBook(req) {
   var cfg = getConfig();
   var name = String(req.name || '').trim();
@@ -229,16 +282,19 @@ function apiBook(req) {
   var conflict = findConflict(cfg, date, start, end, room, null);
   if (conflict) return { ok: false, error: conflict, conflict: true };
 
-  var id = 'b' + Date.now() + Math.floor(Math.random() * 1000);
+  var mk = monthKeyOf(date);
+  var arr = loadMonth(mk);
+  if (arr.length >= MAX_MONTH_BOOKINGS) {
+    return { ok: false, error: '該月份預約已達 ' + MAX_MONTH_BOOKINGS + ' 筆上限，請聯絡管理人' };
+  }
+
+  var id = newBookingId(arr);
   var code = String(Math.floor(1000 + Math.random() * 9000));
   var booking = {
     id: id, name: name, phone: phone, email: email, purpose: purpose,
     date: date, start: start, end: end, room: room,
     code: code, createdAt: Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm')
   };
-  var mk = monthKeyOf(date);
-  var arr = loadMonth(mk);
-  if (JSON.stringify(arr).length > 8300) return { ok: false, error: '該月份預約已滿，請聯絡管理人' };
   arr.push(booking);
   saveMonth(mk, arr);
   return { ok: true, approved: true, id: id, code: code, message: '預約成功！時段無衝突，系統已自動放行。' };
@@ -265,8 +321,7 @@ function apiForgot(req) {
   var today = todayStr();
   var nowHM = Utilities.formatDate(new Date(), TZ, 'HH:mm');
   var list = [];
-  props().getKeys().forEach(function (k) {
-    if (k.indexOf('bookings_') !== 0) return;
+  monthBaseKeys().forEach(function (k) {
     loadMonth(k).forEach(function (b) {
       if (!b.email || b.email.toLowerCase() !== email.toLowerCase()) return;
       if (b.date > today || (b.date === today && b.end >= nowHM)) list.push(b);
