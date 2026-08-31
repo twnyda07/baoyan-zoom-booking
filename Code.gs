@@ -27,7 +27,7 @@ function initialAdminPassword() {
 }
 
 // 改了 roomCatalog() 就把這個字串一起改掉，下次有人開頁面時會自動套用一次到線上設定
-var CATALOG_VERSION = '2026-08-31-特殊會議室+華嚴三卷';
+var CATALOG_VERSION = '2026-08-31-特殊會議室+華嚴三卷改掛8865224676';
 
 // 會議室清單與「不開放申請」清單（前後端都以此為準；管理後台可再調整）
 function roomCatalog() {
@@ -73,12 +73,8 @@ function fixedSlotCatalog() {
     { id: 'f5', title: '瑜伽師地論', room: '2023101199', days: [2], start: '19:30', end: '21:30' },
     { id: 'f6', title: '騰雲華嚴六卷組', room: '5224676123', days: all, start: '06:20', end: '08:30' },
     { id: 'f7', title: '童童華嚴', room: '5224676123', days: [1, 3, 4, 5], start: '20:30', end: '21:00' },
-    { id: 'f8', title: '華嚴經三卷（早）', room: '8835224601', days: all, start: '05:00', end: '06:30' },
-    { id: 'f9', title: '華嚴經三卷（午前）', room: '8835224601', days: all, start: '07:00', end: '08:30' },
-    { id: 'f10', title: '華嚴經三卷（下午）', room: '8835224601', days: all, start: '16:30', end: '18:00' },
-    { id: 'f11', title: '華嚴經三卷（晚）', room: '8835224601', days: all, start: '20:00', end: '21:30' },
     { id: 'f12', title: '常住會議', room: '3215224676', days: [5], start: '08:00', end: '12:00' },
-    // 8865224676 的上課時間與華嚴經三卷組相同，一併列為固定課程（該會議室本身也不開放申請）
+    // 華嚴經三卷組在 8865224676（原本誤植為 8835224601，該號碼不存在，2026-08-31 移除）
     { id: 'f13', title: '華嚴經三卷（早）', room: '8865224676', days: all, start: '05:00', end: '06:30' },
     { id: 'f14', title: '華嚴經三卷（午前）', room: '8865224676', days: all, start: '07:00', end: '08:30' },
     { id: 'f15', title: '華嚴經三卷（下午）', room: '8865224676', days: all, start: '16:30', end: '18:00' },
