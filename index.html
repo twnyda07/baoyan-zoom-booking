@@ -98,6 +98,15 @@ footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
   body{font-size:17px}
   .cal{min-width:640px}
 }
+/* 本站資訊（寶嚴禪寺所有開發一律附） */
+.siteinfo{margin:30px auto 0; max-width:720px; text-align:left; font-size:16px; line-height:1.85; color:var(--brown-d);
+  background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:16px 20px; width:calc(100% - 32px); margin-bottom:34px;}
+.siteinfo .si-h{color:var(--brown); font-weight:700; letter-spacing:.12em; margin-bottom:6px;}
+.siteinfo dl{display:grid; grid-template-columns:max-content 1fr; gap:4px 12px; margin:0;}
+.siteinfo dt{color:#6b5a3e; white-space:nowrap;}
+.siteinfo dd{margin:0; color:var(--brown-d); word-break:break-word;}
+.siteinfo a{color:var(--brown); text-decoration:underline; text-underline-offset:3px; display:inline-block; padding:6px 0; margin:-6px 0;}
+@media(max-width:420px){ .siteinfo dl{grid-template-columns:1fr; gap:0;} .siteinfo dd{margin-bottom:6px;} }
 </style>
 </head>
 <body>
@@ -272,6 +281,15 @@ footer{text-align:center;color:#8a7a5c;padding:26px 12px;font-size:.9em}
 </div>
 
 <footer>寶嚴禪寺 Zoom 會議室預約系統 ｜ 若時段無衝突系統自動放行 ｜ 固定課程依寶嚴國際佛學研修院課表</footer>
+<section class="siteinfo" aria-label="本站資訊">
+  <div class="si-h">本站資訊</div>
+  <dl>
+    <dt>名稱：</dt><dd>寶嚴禪寺zoom會議室預約系統</dd>
+    <dt>網址：</dt><dd><a href="https://twnyda07.github.io/baoyan-zoom-booking/">twnyda07.github.io/baoyan-zoom-booking</a></dd>
+    <dt>特別功能：</dt><dd>查看各 Zoom 會議室的每週行事曆（含固定課程與已預約時段）；線上申請預約，時段沒有衝突就自動成功；可瀏覽近期預約一覽。</dd>
+    <dt>創作者／版權所有：</dt><dd>© 2026 寶嚴山寶嚴禪寺　保留一切權利</dd>
+  </dl>
+</section>
 
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbzky2B5IWWe7niSYCkAyHe5mVtpc5iNlcGecL89iy4tvq-F7IGYcmtMXl8q6w_2YsREwg/exec';
